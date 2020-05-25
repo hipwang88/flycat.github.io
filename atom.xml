@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://iamflycat.com/"/>
-  <updated>2020-05-23T08:38:13.682Z</updated>
+  <updated>2020-05-22T05:15:29.116Z</updated>
   <id>https://iamflycat.com/</id>
   
   <author>
@@ -15,23 +15,6 @@
   </author>
   
   <generator uri="https://hexo.io/">Hexo</generator>
-  
-  <entry>
-    <title>test</title>
-    <link href="https://iamflycat.com/2020/05/22/test/"/>
-    <id>https://iamflycat.com/2020/05/22/test/</id>
-    <published>2020-05-22T05:17:03.000Z</published>
-    <updated>2020-05-23T08:38:13.682Z</updated>
-    
-    <summary type="html">
-    
-    </summary>
-    
-    
-    
-      <category term="Testing" scheme="https://iamflycat.com/tags/Testing/"/>
-    
-  </entry>
   
   <entry>
     <title>Hello World</title>
