@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>Fly Cat&#39;s Blog</title>
-  <icon>https://iamflycat.com/icon.png</icon>
+  
   <subtitle>C&#39;est la vie</subtitle>
   <link href="/atom.xml" rel="self"/>
   
