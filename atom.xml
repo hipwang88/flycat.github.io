@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://iamflycat.com/"/>
-  <updated>2020-05-26T15:36:33.707Z</updated>
+  <updated>2020-05-27T14:39:27.611Z</updated>
   <id>http://iamflycat.com/</id>
   
   <author>
@@ -15,6 +15,36 @@
   </author>
   
   <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>用Windbg和Process Monitor解决一个项目中的实际问题</title>
+    <link href="http://iamflycat.com/2020/05/27/2020-5-27-Procmon-Windbg-win10-taskbar/"/>
+    <id>http://iamflycat.com/2020/05/27/2020-5-27-Procmon-Windbg-win10-taskbar/</id>
+    <published>2020-05-27T12:21:20.000Z</published>
+    <updated>2020-05-27T14:39:27.611Z</updated>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;http://qavfvrg5v.bkt.clouddn.com/20200527220410.png&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;大家都知道Win10系统新增了Cortana和Taskview任务栏图标，这两个新功能能够方便我们的日常工作，但是有些人还是不太习惯任务栏有这两个入口的存在，通常他们会通过任务栏右键菜单来选择是否开启这些功能入口。&lt;br&gt;像腾讯电脑管家和360安全卫士都有Win10助手类软件，可以一键设置这些功能入口。那么，他们是怎么做到系统的开关效果的呢？如果这些类似的需求给到你，你会用什么样的方式来实现这些功能呢？本文就介绍用Procmon和Windbg对系统进行简单逆向的方式来揭示这些功能背后的实现方式。&lt;/p&gt;
+&lt;/blockquote&gt;
+    
+    </summary>
+    
+    
+      <category term="Windows" scheme="http://iamflycat.com/categories/Windows/"/>
+    
+    
+      <category term="Windows" scheme="http://iamflycat.com/tags/Windows/"/>
+    
+      <category term="Procmon" scheme="http://iamflycat.com/tags/Procmon/"/>
+    
+      <category term="Windbg" scheme="http://iamflycat.com/tags/Windbg/"/>
+    
+      <category term="逆向" scheme="http://iamflycat.com/tags/%E9%80%86%E5%90%91/"/>
+    
+  </entry>
   
   <entry>
     <title>动态壁纸之桌面图标后窗口创建方式</title>
@@ -37,13 +67,13 @@
       <category term="Windows" scheme="http://iamflycat.com/categories/Windows/"/>
     
     
+      <category term="逆向" scheme="http://iamflycat.com/tags/%E9%80%86%E5%90%91/"/>
+    
       <category term="windows" scheme="http://iamflycat.com/tags/windows/"/>
     
       <category term="动态壁纸" scheme="http://iamflycat.com/tags/%E5%8A%A8%E6%80%81%E5%A3%81%E7%BA%B8/"/>
     
       <category term="spy++" scheme="http://iamflycat.com/tags/spy/"/>
-    
-      <category term="逆向" scheme="http://iamflycat.com/tags/%E9%80%86%E5%90%91/"/>
     
   </entry>
   

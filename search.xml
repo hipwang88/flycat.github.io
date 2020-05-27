@@ -1,6 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>用Windbg和Process Monitor解决一个项目中的实际问题</title>
+    <url>/2020/05/27/2020-5-27-Procmon-Windbg-win10-taskbar/</url>
+    <content><![CDATA[<p><img src="http://qavfvrg5v.bkt.clouddn.com/20200527220410.png" alt=""></p>
+<blockquote>
+<p>大家都知道Win10系统新增了Cortana和Taskview任务栏图标，这两个新功能能够方便我们的日常工作，但是有些人还是不太习惯任务栏有这两个入口的存在，通常他们会通过任务栏右键菜单来选择是否开启这些功能入口。<br>像腾讯电脑管家和360安全卫士都有Win10助手类软件，可以一键设置这些功能入口。那么，他们是怎么做到系统的开关效果的呢？如果这些类似的需求给到你，你会用什么样的方式来实现这些功能呢？本文就介绍用Procmon和Windbg对系统进行简单逆向的方式来揭示这些功能背后的实现方式。</p>
+</blockquote>
+<a id="more"></a>
+
+<p>下面我们来看系统中的设置效果是怎么样的<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527221114.png" alt=""></p>
+<p>这是win10的任务栏，我们可以在任务栏上右键选择cortana和taskview的显示状态<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527221149.png" style="zoom: 45%;" /></p>
+<p><strong>通过右键弹出菜单设置后，系统能够做到任务栏无闪烁变化，我们的目的就是这个</strong></p>
+<p>既然目标明确了，下面就是要解决的问题：</p>
+<blockquote>
+<p><strong><em>1.系统的状态信息存放在哪里？</em></strong></p>
+</blockquote>
+<blockquote>
+<p><strong><em>2.如何做到无闪烁的？（刷新？or调用个什么api啥的）</em></strong></p>
+</blockquote>
+<p><strong>针对第一个问题</strong>，我先猜测应该是存放到注册表中的，那么我们可以利用process monitor来抓抓看，设置好filter，进程名是explorer.exe，operator抓RegSetValue，如下<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527221312.png" style="zoom: 33%;" /></p>
+<p>监控开始，我们尝试隐藏下taskview，看下能抓到什么<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527221349.png" style="zoom: 40%;" /></p>
+<p>果然，抓到一条有点像的注册表</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\ShowTaskViewButton</span><br></pre></td></tr></table></figure>
+<p>多做几次操作，我们大概了解了，这个值的0代表隐藏，1代表显示</p>
+<p>后面我们手动修改下，然后重启下explorer.exe，果然这个就是系统保存设置的地方，这样第一个问题解决了，后面也可以用同样的方式抓到cortana的值是怎么保存的，读者可以自己试验</p>
+<p>接下来我们解决<strong>第二个问题，怎么无闪烁的改变显示状态</strong></p>
+<p>第一个想到的是SHChangeNotify函数，这个函数一般可以解决刷新问题，但是在任务栏是否也能刷新到呢？试验的结果是，只能刷新到桌面</p>
+<p>第一条路行不通，那会不会是发送消息呢？先上网查查有没有这方面的资料。无果，看来win10这方面的资料还不是很多，没办法，只能自己去挖了</p>
+<p>上神器windbg，找了一个32位的win10</p>
+<p>记得解决第一个疑问的时候的procmon吗？它有个很好用的功能是可以看栈回溯，在它写关键注册表的位置，双击下，看看栈<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527221805.png" style="zoom: 40%;" /></p>
+<p>别忘了，他还可以设置符号，如下，options-&gt;configure symbols…<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527221835.png" style="zoom:50%;" /></p>
+<p>找到explorer模块中准备设置注册表的位置<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527221858.png" style="zoom:50%;" /></p>
+<p><strong>它的地址是0xb4d5f3</strong></p>
+<p>下面我们用windbg attach到explorer.exe进程，找到这个位置断点下来<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527221935.png" style="zoom:40%;" /></p>
+<p>我们前面猜测是发送的消息，那么我们就下断点<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222001.png" style="zoom:60%;" /></p>
+<p>现在有两个断点，一个是开始写注册表的时候，一个是发送通知消息的时候<br>那么，我们恢复运行，重新触发下taskview的显示状态，这个时候windbg断下来了<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222048.png" style="zoom:40%;" /></p>
+<p>输入g，让他继续运行，这个时候断点触发，断在了SendNotifyMessage那里，说明我们的猜测是正确的，接下来就看SendNotifyMessage里面都传了哪些内容<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222118.png" style="zoom:40%;" /></p>
+<p>栈回溯大概是这样子<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222145.png" style="zoom:40%;" /></p>
+<p>SendNotifyMessage的定义是这样的<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222208.png" style="zoom:40%;" /></p>
+<p>那么，我们可以看到这里是怎么传递参数的<br>HWND hWnd是第一个参数，这里是0xffff，查下msdn也就是HWND_BROADCAST<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222240.png" style="zoom:50%;" /></p>
+<p>UINT msg是第二个参数，这里是0x1a，可以在WinUser.h中查到他的定义<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222309.png" style="zoom:50%;" /></p>
+<img src="http://qavfvrg5v.bkt.clouddn.com/20200527222329.png" style="zoom:50%;" />
+
+<p>WPARAM wParam第三个参数，这里是0<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222353.png" style="zoom:50%;" /></p>
+<p>LPARAM lParam第四个参数，这里是0x001c7ddc ，还不确定它具体代表什么<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222418.png" style="zoom:50%;" /></p>
+<p>后面du下这个地址，如下：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222443.png" style="zoom:50%;" /></p>
+<p><strong>经过上面的分析，我们大概知道的这个消息是怎么发送的，把他用代码表示可以这样写：</strong><br><strong>试验后，发现这样就可以达到系统的效果–做到了任务栏的无闪烁刷新</strong><br><img src="http://qavfvrg5v.bkt.clouddn.com/20200527222510.png" style="zoom:50%;" /></p>
+<p>小结：procmon和Windbg结合发现可以解决很多有意思的问题，大家感兴趣的话也可以尝试一下</p>
+]]></content>
+      <categories>
+        <category>Windows</category>
+      </categories>
+      <tags>
+        <tag>Windows</tag>
+        <tag>Procmon</tag>
+        <tag>Windbg</tag>
+        <tag>逆向</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>动态壁纸之桌面图标后窗口创建方式</title>
     <url>/2020/05/26/2020-5-26-wallpaper_motion_wnd/</url>
     <content><![CDATA[<img src="http://qavfvrg5v.bkt.clouddn.com/20200526233208.png" style="zoom:200%;" />
@@ -32,10 +91,10 @@
         <category>Windows</category>
       </categories>
       <tags>
+        <tag>逆向</tag>
         <tag>windows</tag>
         <tag>动态壁纸</tag>
         <tag>spy++</tag>
-        <tag>逆向</tag>
       </tags>
   </entry>
 </search>
