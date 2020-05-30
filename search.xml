@@ -1,6 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>动态壁纸之桌面图标后窗口创建方式</title>
+    <url>/2020/05/26/2020-5-26-wallpaper_motion_wnd/</url>
+    <content><![CDATA[<img src="http://qavfvrg5v.bkt.clouddn.com/20200526233208.png" style="zoom:200%;" />
+
+<blockquote>
+<p>动态壁纸顾名思义就是一个桌面背景在播放视频的软件，要做这个产品首先要解决怎么在桌面图标后面和桌面背景之间创建一个窗口来播放视频，并且要兼容目前市面上的桌面整理软件，下面介绍下研究过程。</p>
+</blockquote>
+<a id="more"></a>
+<p>要说明这个问题，首先简单介绍下windows的窗口句柄相关的内容<br>把spy++运行起来，如下发现了一个由我们的系统的窗口句柄组成的树形结构：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194003.png"  style="zoom:90%" align=center></p>
+<p>最顶层的Desktop代表我们的整个桌面系统，系统的其他窗口都属于他的子窗口，兄弟窗口间靠上的窗口覆盖靠下面的窗口，最底层的Progman窗口就是我们的系统桌面，桌面图标窗口是一个List控件由SHELLDLL_DefView窗口承载，如下图：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194153.png"  style="zoom:60%"></p>
+<p>开启桌面整理软件后，桌面窗口变成如下方式：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194237.png"  style="zoom:60%"></p>
+<p>腾讯的桌面整理的窗口是作为Progman的子窗口插入在桌面图标窗口之上来实现常见的桌面格子功能，这些格子其实也是 “桌面整理”TxMiniSkin 窗口的子窗口，这里是一个虚窗口，所以在spy++里面是看不到的。</p>
+<p>那么，我们要做一个视频桌面的话，很容易能够想到的方法就是把我们的视频窗口句柄作为桌面的子窗口然后把他放在SHELLDLL_DefView的下面的一个兄弟节点，就能实现如下示意图:<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194336.png"  style="zoom:40%" align=center></p>
+<p>思路大致有了，我们来看看市面上比较流行的动态壁纸产品（火萤桌面、WallPaperEngine）他们是怎么实现视频桌面的</p>
+<p>火萤的视频桌面如下<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194621.png"  style="zoom:60%"></p>
+<p>WallPaperEngine的视频桌面如下：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194655.png"  style="zoom:60%"></p>
+<p>发现他们有一个共性：他们的桌面图标窗口和桌面窗口分离了，桌面图标窗口放到了一个WorkerW的窗口下面，然后中间也多出来一个WorkerW窗口，并且从窗口层级来看，满足我之前的思路，把视频窗口放到SHELLDLL_DefView的下面。火萤的做法是把视频窗口放到了Progman桌面窗口下，然后隐藏中间的WorkerW窗口，目的是防止这个窗口挡住视频窗口的显示；WallPaperEngine的做法是直接在中间的WorkerW窗口下放他的视频窗口。两种方式在原理上都能满足视频桌面的需求。</p>
+<p>现在问题来了，他们是怎么把桌面图标窗口分出来，并且创建了两个WorkerW窗口，其中上层窗口用来承载桌面图标窗口？</p>
+<p>根据经验，我猜测他们应该调用了一个系统提供的函数或者发了一个什么消息之类的，要不然不会这么整齐的出现WorkerW窗口类名。看来需要做一次简单的逆向，来找出他们是怎么做的。</p>
+<p>关键线索应该就是找Progman这个窗口了，用IDA打开火萤的HYVideoDesktopCore.exe，找关键函数如：FindWindow、FindWindowEx、EnumWindow之类的，看看有没有查找Progman的地方<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194902.png"  style="zoom:40%"><br>寻找交叉引用<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194928.png"  style="zoom:40%"><br>看到了关的Progman窗口，发现他公用了一个ClassName，然后我们再看看都有哪些地方引用到了<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194954.png"  style="zoom:40%"><br>发现就两个地方<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195016.png"  style="zoom:40%"><br>第一个就是我们刚刚找到的那个函数，我们再看看第二个交叉引用的地方<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195039.png"  style="zoom:40%"></p>
+<p>从汇编来看，火萤是对Progman窗口调用SendMessageTimeOut消息，根据之前的经验，我们可以对windows的很多关键句柄发送一些特殊的消息来达到一些特殊的目的，还原下这段代码，如下：</p>
+<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line">::SendMessageTimeout(hProgman, <span class="number">0x052C</span>, <span class="number">0</span>, <span class="number">0</span>, SMTO_NORMAL, <span class="number">1000</span>, <span class="literal">NULL</span>);</span><br></pre></td></tr></table></figure>
+
+<p>0x052c是Windows定义了一个特殊的消息，我们这里无法知晓他的作用，忍不住想尝试下他的作用，于是我写了一段代码模拟了一下<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195204.png"  style="zoom:40%"><br>运行后，用spy++看下结果，果然这个消息是用来分离桌面图标句柄和桌面窗口的消息，看来非常接近我们的目标了。<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195241.png"  style="zoom:40%"></p>
+<p>既然存在分离的消息，那么肯定有还原的消息，经过多次试验，发现上面那个消息传递WParam和LParam值的时候可以达到我们的目标，还原的消息如下：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195310.png"  style="zoom:40%"></p>
+<p>于是乎，我们就得到了怎么做视频桌面的第一步：分离桌面和桌面图标窗口<br>接下来的事情就是怎么做一个播放器了，关于视频播放器的内容我后面再做分享，大概用到了DirectShow和Media Foundation两种架构的视频播放器实现，敬请期待<del>~</del></p>
+]]></content>
+      <categories>
+        <category>逆向</category>
+        <category>Windows</category>
+      </categories>
+      <tags>
+        <tag>windows</tag>
+        <tag>动态壁纸</tag>
+        <tag>spy++</tag>
+        <tag>逆向</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>用Windbg和Process Monitor解决一个项目中的实际问题</title>
     <url>/2020/05/27/2020-5-27-Procmon-Windbg-win10-taskbar/</url>
     <content><![CDATA[<p><img src="http://qavfvrg5v.bkt.clouddn.com/20200527220410.png" alt=""></p>
@@ -54,49 +93,10 @@
         <category>Windows</category>
       </categories>
       <tags>
+        <tag>逆向</tag>
         <tag>Windows</tag>
         <tag>Procmon</tag>
         <tag>Windbg</tag>
-        <tag>逆向</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>动态壁纸之桌面图标后窗口创建方式</title>
-    <url>/2020/05/26/2020-5-26-wallpaper_motion_wnd/</url>
-    <content><![CDATA[<img src="http://qavfvrg5v.bkt.clouddn.com/20200526233208.png" style="zoom:200%;" />
-
-<blockquote>
-<p>动态壁纸顾名思义就是一个桌面背景在播放视频的软件，要做这个产品首先要解决怎么在桌面图标后面和桌面背景之间创建一个窗口来播放视频，并且要兼容目前市面上的桌面整理软件，下面介绍下研究过程。</p>
-</blockquote>
-<a id="more"></a>
-<p>要说明这个问题，首先简单介绍下windows的窗口句柄相关的内容<br>把spy++运行起来，如下发现了一个由我们的系统的窗口句柄组成的树形结构：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194003.png"  style="zoom:90%" align=center></p>
-<p>最顶层的Desktop代表我们的整个桌面系统，系统的其他窗口都属于他的子窗口，兄弟窗口间靠上的窗口覆盖靠下面的窗口，最底层的Progman窗口就是我们的系统桌面，桌面图标窗口是一个List控件由SHELLDLL_DefView窗口承载，如下图：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194153.png"  style="zoom:60%"></p>
-<p>开启桌面整理软件后，桌面窗口变成如下方式：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194237.png"  style="zoom:60%"></p>
-<p>腾讯的桌面整理的窗口是作为Progman的子窗口插入在桌面图标窗口之上来实现常见的桌面格子功能，这些格子其实也是 “桌面整理”TxMiniSkin 窗口的子窗口，这里是一个虚窗口，所以在spy++里面是看不到的。</p>
-<p>那么，我们要做一个视频桌面的话，很容易能够想到的方法就是把我们的视频窗口句柄作为桌面的子窗口然后把他放在SHELLDLL_DefView的下面的一个兄弟节点，就能实现如下示意图:<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194336.png"  style="zoom:40%" align=center></p>
-<p>思路大致有了，我们来看看市面上比较流行的动态壁纸产品（火萤桌面、WallPaperEngine）他们是怎么实现视频桌面的</p>
-<p>火萤的视频桌面如下<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194621.png"  style="zoom:60%"></p>
-<p>WallPaperEngine的视频桌面如下：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194655.png"  style="zoom:60%"></p>
-<p>发现他们有一个共性：他们的桌面图标窗口和桌面窗口分离了，桌面图标窗口放到了一个WorkerW的窗口下面，然后中间也多出来一个WorkerW窗口，并且从窗口层级来看，满足我之前的思路，把视频窗口放到SHELLDLL_DefView的下面。火萤的做法是把视频窗口放到了Progman桌面窗口下，然后隐藏中间的WorkerW窗口，目的是防止这个窗口挡住视频窗口的显示；WallPaperEngine的做法是直接在中间的WorkerW窗口下放他的视频窗口。两种方式在原理上都能满足视频桌面的需求。</p>
-<p>现在问题来了，他们是怎么把桌面图标窗口分出来，并且创建了两个WorkerW窗口，其中上层窗口用来承载桌面图标窗口？</p>
-<p>根据经验，我猜测他们应该调用了一个系统提供的函数或者发了一个什么消息之类的，要不然不会这么整齐的出现WorkerW窗口类名。看来需要做一次简单的逆向，来找出他们是怎么做的。</p>
-<p>关键线索应该就是找Progman这个窗口了，用IDA打开火萤的HYVideoDesktopCore.exe，找关键函数如：FindWindow、FindWindowEx、EnumWindow之类的，看看有没有查找Progman的地方<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194902.png"  style="zoom:40%"><br>寻找交叉引用<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194928.png"  style="zoom:40%"><br>看到了关的Progman窗口，发现他公用了一个ClassName，然后我们再看看都有哪些地方引用到了<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526194954.png"  style="zoom:40%"><br>发现就两个地方<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195016.png"  style="zoom:40%"><br>第一个就是我们刚刚找到的那个函数，我们再看看第二个交叉引用的地方<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195039.png"  style="zoom:40%"></p>
-<p>从汇编来看，火萤是对Progman窗口调用SendMessageTimeOut消息，根据之前的经验，我们可以对windows的很多关键句柄发送一些特殊的消息来达到一些特殊的目的，还原下这段代码，如下：</p>
-<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line">::SendMessageTimeout(hProgman, <span class="number">0x052C</span>, <span class="number">0</span>, <span class="number">0</span>, SMTO_NORMAL, <span class="number">1000</span>, <span class="literal">NULL</span>);</span><br></pre></td></tr></table></figure>
-
-<p>0x052c是Windows定义了一个特殊的消息，我们这里无法知晓他的作用，忍不住想尝试下他的作用，于是我写了一段代码模拟了一下<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195204.png"  style="zoom:40%"><br>运行后，用spy++看下结果，果然这个消息是用来分离桌面图标句柄和桌面窗口的消息，看来非常接近我们的目标了。<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195241.png"  style="zoom:40%"></p>
-<p>既然存在分离的消息，那么肯定有还原的消息，经过多次试验，发现上面那个消息传递WParam和LParam值的时候可以达到我们的目标，还原的消息如下：<br><img src="http://qavfvrg5v.bkt.clouddn.com/20200526195310.png"  style="zoom:40%"></p>
-<p>于是乎，我们就得到了怎么做视频桌面的第一步：分离桌面和桌面图标窗口<br>接下来的事情就是怎么做一个播放器了，关于视频播放器的内容我后面再做分享，大概用到了DirectShow和Media Foundation两种架构的视频播放器实现，敬请期待<del>~</del></p>
-]]></content>
-      <categories>
-        <category>逆向</category>
-        <category>Windows</category>
-      </categories>
-      <tags>
-        <tag>逆向</tag>
-        <tag>windows</tag>
-        <tag>动态壁纸</tag>
-        <tag>spy++</tag>
       </tags>
   </entry>
   <entry>
@@ -187,8 +187,8 @@
         <category>Windows</category>
       </categories>
       <tags>
-        <tag>Windbg</tag>
         <tag>逆向</tag>
+        <tag>Windbg</tag>
         <tag>黑盒分析</tag>
         <tag>调试</tag>
       </tags>
